@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Ember JS - Implement an After Render Event Hook for your jQuery logic for all Views"
-description: "Ember JS - Implement an After Render Event Hook for your jQuery logic for all Views"
+title: "Ember JS - How to execute jQuery logic correctly after your View has been rendered"
+description: "Ember JS - How to execute jQuery logic correctly after your View has been rendered"
 category: Javascript
 tags: [emberjs, javascript]
 ---
