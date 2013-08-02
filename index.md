@@ -5,7 +5,10 @@ tagline: Here i am just messing around a little bit.
 ---
 {% include JB/setup %}
 
-<h3> Those are all available Blog posts: </h3>
+## What is this Blog about?
+I am a Software Developer from Berlin. My main background is *Java*. But lately i have been learning Javascript, in particular developing client side applications with *EmberJS*. Additionally i am learning *Scala*. My posts will be most likely about Scala and EmberJS. Every time i encounter an interesting topic, i will cover it here. This is mainly an exercise for me, so that i am sure i have understand the presented problems properly. Maybe someone else finds it useful too :-)
+
+##### Those are all available Blog posts:
 <ul class="posts">
   {% for post in site.posts %}
     <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ BASE_PATH }}{{ post.url }}">{{ post.title }}</a></li>
@@ -24,10 +27,10 @@ In `_config.yml` remember to specify your own data:
     title : My Blog =)
     
     author :
-      name : Name Lastname
-      email : blah@email.test
+      name : Marcus Böhm
+      email : wif.mboehm@gmx.de
       github : username
-      twitter : username
+      twitter : mav1lein
 
 The theme should reference these variables whenever needed.
     
