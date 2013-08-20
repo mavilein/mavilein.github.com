@@ -8,6 +8,9 @@ tagline: Here i am just messing around a little bit.
 ## What is this Blog about?
 I am a Software Developer from Berlin. My main background is *Java*. But lately i have been learning Javascript, in particular developing client side applications with *EmberJS*. Additionally i am learning *Scala*. My posts will be most likely about Scala and EmberJS. Every time i encounter an interesting topic, i will cover it here. This is mainly an exercise for me, so that i am sure i have understand the presented problems properly. Maybe someone else finds it useful too :-)
 
+<a href="https://twitter.com/mav1lein" class="twitter-follow-button" data-show-count="false" data-lang="en">Follow @twitterapi</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+
 ##### Those are all available Blog posts:
 <ul class="posts">
   {% for post in site.posts %}
