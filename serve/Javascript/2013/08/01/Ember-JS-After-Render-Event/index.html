@@ -1,0 +1,264 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ember JS - How to execute jQuery logic correctly after your View has been rendered</title>
+    <meta name="description" content="Ember JS - How to execute jQuery logic correctly after your View has been rendered">
+    <meta name="author" content="Marcus Böhm">
+
+    <!-- Enable responsive viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.2.2.2.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+
+    <!-- atom & rss feed -->
+    <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="Sitewide ATOM Feed">
+    <link href="/rss.xml" type="application/rss+xml" rel="alternate" title="Sitewide RSS Feed">
+
+  </head>
+
+  <body>
+    <div class="navbar">
+      <div class="navbar-inner">
+        <div class="container-narrow">
+          <a class="brand" href="/">mavilein's messy blog space</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+
+
+
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container-narrow">
+
+      <div class="content">
+        
+<div class="page-header">
+  <h1>Ember JS - How to execute jQuery logic correctly after your View has been rendered </h1>
+</div>
+
+<a href="https://twitter.com/mav1lein" class="twitter-follow-button" data-show-count="false" data-lang="en">Follow @mavilein</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+
+<div class="row-fluid post-full">
+  <div class="span12">
+    <div class="date">
+      <span>01 August 2013</strong>
+    </div>
+    <div class="content">
+      <p>Welcome to my first blog post ever. This post is about EmberJS and the best way integrate jQuery logic into your custom views. Every now and then, i see this question being asked on Stack Overflow. You will quite often have the requirement that you want to perform some jQuery logic on the elements of a View after it has been rendered, e.g. you do something simple like highlighting or animating something. The question is how to do that in Ember? We will start with an easy implementation and refine it in two steps.</p>
+
+<h4 id='the_naive_implementation'>The naive implementation</h4>
+
+<p>The answer you will find very quickly by Googling or reading the Docs for <a href='http://emberjs.com/api/classes/Ember.View.html'>Ember.View</a> is that you should use the event hook called <em>didInsertElement</em>.</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>App</span><span class='p'>.</span><span class='nx'>YourView</span> <span class='o'>=</span> <span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>View</span><span class='p'>.</span><span class='nx'>extend</span><span class='p'>({</span>
+  <span class='nx'>didInsertElement</span> <span class='o'>:</span> <span class='kd'>function</span><span class='p'>(){</span>
+    <span class='k'>this</span><span class='p'>.</span><span class='nx'>_super</span><span class='p'>();</span>
+    <span class='c1'>// perform your jQuery logic here</span>
+  <span class='p'>}</span>
+<span class='p'>});</span>
+</code></pre></div>
+<p>This hook will work fine most of the time! But there is one <strong>Problem!</strong></p>
+
+<p>This hook is guaranteed to be executed when the <strong>root element</strong> of this view <strong>has been inserted into the DOM</strong>. This means that the root element of the view is in the DOM, but it is not guaranteed that the template has been fully rendered. Most of the times the above will work, because as far as i have seen, the template associated with your View will always be rendered at this point. But it <strong>can lead to problems when you are trying to access an element of a child view</strong> of your view. This will likely happen if your performing some jQuery logic on a list of elements, where the logic is performed by the parent view of all elements. If this happens, you will likely be very irritated, because it used to work for the simple cases, right?</p>
+
+<h4 id='the_improved_implementation'>The improved implementation</h4>
+
+<p>To alleviate the problems mentioned above you will very often find something like the following on StackOverflow. The advice is to use the <em>afterRender</em> Queue of the <strong>Ember Run Loop</strong>. With this implementation you code will be run, when your view has been fully rendered (including its child views).</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>App</span><span class='p'>.</span><span class='nx'>YourView</span> <span class='o'>=</span> <span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>View</span><span class='p'>.</span><span class='nx'>extend</span><span class='p'>({</span>
+  <span class='nx'>didInsertElement</span> <span class='o'>:</span> <span class='kd'>function</span><span class='p'>(){</span>
+    <span class='k'>this</span><span class='p'>.</span><span class='nx'>_super</span><span class='p'>();</span>
+    <span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>run</span><span class='p'>.</span><span class='nx'>scheduleOnce</span><span class='p'>(</span><span class='s1'>&#39;afterRender&#39;</span><span class='p'>,</span> <span class='k'>this</span><span class='p'>,</span> <span class='kd'>function</span><span class='p'>(){</span>
+    	<span class='c1'>// perform your jQuery logic here</span>
+    <span class='p'>});</span>
+  <span class='p'>}</span>
+<span class='p'>});</span>
+</code></pre></div>
+<p><strong>Problem:</strong> You will need this piece of code quite often and it is annoying to copy-paste it everytime. I can&#8217;t remember the right sequence of the parameters :-).</p>
+
+<h4 id='the_best_solution_from_my_point_of_view'>The best solution from my point of View</h4>
+
+<p>Wouldn&#8217;t it be great to have <strong>a hook like didInsertElement</strong>, which is guaranteed to be executed when all the rendering stuff has happened? Thanks to the great Embers Object Model it is really easy to add this hook yourself to all of your Ember Views. We are using the method <em>reopen to extend the definition of a class/object</em> and add the hook i named &#8216;afterRenderEvent&#8217;.</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>View</span><span class='p'>.</span><span class='nx'>reopen</span><span class='p'>({</span>
+  <span class='nx'>didInsertElement</span> <span class='o'>:</span> <span class='kd'>function</span><span class='p'>(){</span>
+    <span class='k'>this</span><span class='p'>.</span><span class='nx'>_super</span><span class='p'>();</span>
+    <span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>run</span><span class='p'>.</span><span class='nx'>scheduleOnce</span><span class='p'>(</span><span class='s1'>&#39;afterRender&#39;</span><span class='p'>,</span> <span class='k'>this</span><span class='p'>,</span> <span class='k'>this</span><span class='p'>.</span><span class='nx'>afterRenderEvent</span><span class='p'>);</span>
+  <span class='p'>},</span>
+  <span class='nx'>afterRenderEvent</span> <span class='o'>:</span> <span class='kd'>function</span><span class='p'>(){</span>
+    <span class='c1'>// implement this hook in your own subclasses and run your jQuery logic there</span>
+  <span class='p'>}</span>
+<span class='p'>});</span>
+</code></pre></div>
+<p>In each of your Views, you can now use the hook <em>afterRenderEvent</em> and you do not have to think about the problems mentioned above. Feel free to ask questions and give your opinions in the comments :-)</p>
+    </div>
+
+    <a href="https://twitter.com/mav1lein" class="twitter-follow-button" data-show-count="false" data-lang="en">Follow @twitterapi</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+
+  
+    <ul class="tag_box inline">
+      <li><i class="icon-folder-open"></i></li>
+      
+      
+
+
+  
+     
+    	<li><a href="/categories.html#Javascript-ref">
+    		Javascript <span>2</span>
+    	</a></li>
+    
+  
+
+
+    </ul>
+    
+
+  
+    <ul class="tag_box inline">
+      <li><i class="icon-tags"></i></li>
+      
+      
+
+
+  
+     
+    	<li><a href="/tags.html#emberjs-ref">emberjs <span>2</span></a></li>
+     
+    	<li><a href="/tags.html#javascript-ref">javascript <span>2</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/lessons/2011/12/29/jekyll-introduction" title="Jekyll Introduction">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/Javascript/2013/08/20/Ember-JS-Best-Practices-helpful-debugging-tools" title="Ember JS Best Practices - Helpful debugging tools">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_developer = 1;
+    var disqus_shortname = 'mavilein'; // required: replace example with your forum shortname
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="http://disqus.com" class="dsq-brlink">blog comments powered by <span class="logo-disqus">Disqus</span></a>
+
+
+
+
+  </div>
+</div>
+
+      </div>
+      <hr>
+      <footer>
+        <p>&copy; 2013 Marcus Böhm
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div>
+
+    
+  </body>
+</html>
+

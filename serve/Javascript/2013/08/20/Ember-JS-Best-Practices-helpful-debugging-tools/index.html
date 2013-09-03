@@ -1,0 +1,290 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ember JS Best Practices - Helpful debugging tools</title>
+    <meta name="description" content="Ember JS Best Practices - A List of helpful debugging tools">
+    <meta name="author" content="Marcus Böhm">
+
+    <!-- Enable responsive viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.2.2.2.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+
+    <!-- atom & rss feed -->
+    <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="Sitewide ATOM Feed">
+    <link href="/rss.xml" type="application/rss+xml" rel="alternate" title="Sitewide RSS Feed">
+
+  </head>
+
+  <body>
+    <div class="navbar">
+      <div class="navbar-inner">
+        <div class="container-narrow">
+          <a class="brand" href="/">mavilein's messy blog space</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+
+
+
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container-narrow">
+
+      <div class="content">
+        
+<div class="page-header">
+  <h1>Ember JS Best Practices - Helpful debugging tools </h1>
+</div>
+
+<a href="https://twitter.com/mav1lein" class="twitter-follow-button" data-show-count="false" data-lang="en">Follow @mavilein</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+
+<div class="row-fluid post-full">
+  <div class="span12">
+    <div class="date">
+      <span>20 August 2013</strong>
+    </div>
+    <div class="content">
+      <p>This is a short post <strong>collecting some helpful debugging tools</strong> built into Ember or how you could easily implement some yourself.</p>
+
+<h3 id='the_basics__what_debugging_tools_are_built_into_ember'>The Basics - What debugging tools are built into Ember?</h3>
+
+<p>There is already a really helpful list in the <a href='http://emberjs.com/guides/understanding-ember/debugging/'>Ember Docs about Debugging</a>.</p>
+
+<p>On top of this i would like to add a snippet, that has become very important with the introduction of heavy usage of promises in the recent Ember releases. Note that you need the most recent version of Ember at the point of this writing (== RC7). You should <strong>include these few lines of code in every Ember App</strong>. I learned about those lines in the Blog of <a href='http://ianpetzer.wordpress.com/2013/07/24/dont-let-ember-js-swallow-errors-in-your-promises/'>Ian Petzer</a>. This snippet logs all exceptions that are thrown when resolving or rejecting promises. <strong>If you do not include this snippet, all exceptions will be swallowed silently</strong> and may leave you very irritated.</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>RSVP</span><span class='p'>.</span><span class='nx'>configure</span><span class='p'>(</span><span class='s1'>&#39;onerror&#39;</span><span class='p'>,</span> <span class='kd'>function</span><span class='p'>(</span><span class='nx'>e</span><span class='p'>)</span> <span class='p'>{</span>
+  <span class='nx'>console</span><span class='p'>.</span><span class='nx'>log</span><span class='p'>(</span><span class='nx'>e</span><span class='p'>.</span><span class='nx'>message</span><span class='p'>);</span> 
+  <span class='nx'>console</span><span class='p'>.</span><span class='nx'>log</span><span class='p'>(</span><span class='nx'>e</span><span class='p'>.</span><span class='nx'>stack</span><span class='p'>);</span>
+<span class='p'>});</span>
+</code></pre></div>
+<h3 id='beyond_the_basics__a_typical_debugging_process'>Beyond the basics - A typical debugging process</h3>
+
+<p>It is quite often that you will start your app and see no exceptions in the console, but you won&#8217;t see the desired result in the browser also. How to go about this? There may be a minor error in your template or the connected controller does not carry the right data. How to analyze this kind of error? As the Ember Contributors deeply care about usability, they are developing an <a href='https://github.com/tildeio/ember-extension.git'>extension for Chrome</a>, which facilitates this kind of debugging. With this extension you can inspect DOM elements with one click and see the associated View and Controller. You can already install this extension, but it is not officially released yet. Alternatively <strong>you can mirror this functionality manually in the browser console</strong>. How to do that?</p>
+
+<p>First things first, you likely already noticed how Ember is rendering Views. It is inserting views with prefixed ids into your DOM:</p>
+<div class='highlight'><pre><code class='html'><span class='nt'>&lt;div</span> <span class='na'>id=</span><span class='s'>&quot;ember479&quot;</span> <span class='na'>class=</span><span class='s'>&quot;ember-view&quot;</span><span class='nt'>&gt;</span>
+  ...
+<span class='nt'>&lt;/div&gt;</span>
+</code></pre></div>
+<p>Following the aforementioned <a href='http://emberjs.com/guides/understanding-ember/debugging/'>Debugging Docs</a>, you can get the View object associated with the DOM element shown above by calling the following in your console:</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>View</span><span class='p'>.</span><span class='nx'>views</span><span class='p'>[</span><span class='s1'>&#39;ember479&#39;</span><span class='p'>]</span>
+</code></pre></div>
+<p>You can get the controller backing this view by getting the controller property of your view:</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>View</span><span class='p'>.</span><span class='nx'>views</span><span class='p'>[</span><span class='s1'>&#39;ember479&#39;</span><span class='p'>].</span><span class='nx'>get</span><span class='p'>(</span><span class='s1'>&#39;controller&#39;</span><span class='p'>)</span>
+</code></pre></div>
+<p>This is quite handy already but is relatively cumbersome, when you are refreshing your browser very often and need to repeat these lines quite often. So it is a good idea to encapsulate this functionality in a helper function. I am using the following two debugging functions in my projects:</p>
+<div class='highlight'><pre><code class='javascript'><span class='kd'>function</span> <span class='nx'>ev</span><span class='p'>(</span><span class='nx'>emberId</span><span class='p'>){</span>
+  <span class='k'>return</span> <span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>View</span><span class='p'>.</span><span class='nx'>views</span><span class='p'>[</span><span class='s1'>&#39;ember&#39;</span> <span class='o'>+</span> <span class='nx'>emberId</span><span class='p'>];</span>
+<span class='p'>}</span>
+<span class='kd'>function</span> <span class='nx'>ec</span><span class='p'>(</span><span class='nx'>emberId</span><span class='p'>){</span>
+  <span class='k'>return</span> <span class='nx'>ev</span><span class='p'>(</span><span class='nx'>emberId</span><span class='p'>).</span><span class='nx'>get</span><span class='p'>(</span><span class='s1'>&#39;controller&#39;</span><span class='p'>);</span>
+<span class='p'>}</span>
+</code></pre></div>
+<p>This way you get the view or controller linked to the element above by <strong>calling simply ev(479) or ec(479)</strong>.</p>
+
+<h4 id='adding_custom_logging_and_debugging_functions_to_arbitrary_ember_classes'>Adding custom logging and debugging functions to arbitrary Ember Classes</h4>
+
+<p>So far you can now get controllers and views associated with a DOM element with one line of code. Now you can call methods of your objects to trigger something manually and see what happens, e.g. inspect the content of a controller. But this might be very cumbersome again. A really useful feature in Ember is that you can easily extend the existing classes by using the method <em>reopen</em>. The following snippet is one that i am using often. This snippet extends the existing Controllers and adds a method which logs its content in the console.</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>ArrayController</span><span class='p'>.</span><span class='nx'>reopen</span><span class='p'>({</span>
+  <span class='nx'>logContent</span> <span class='o'>:</span> <span class='kd'>function</span><span class='p'>(){</span>
+    <span class='k'>this</span><span class='p'>.</span><span class='nx'>forEach</span><span class='p'>(</span><span class='kd'>function</span><span class='p'>(</span><span class='nx'>item</span><span class='p'>,</span> <span class='nx'>index</span><span class='p'>){</span>
+      <span class='nx'>console</span><span class='p'>.</span><span class='nx'>log</span><span class='p'>(</span><span class='nx'>index</span> <span class='o'>+</span> <span class='s2'>&quot;: &quot;</span> <span class='o'>+</span> <span class='nx'>item</span><span class='p'>.</span><span class='nx'>toString</span><span class='p'>());</span>
+    <span class='p'>});</span>
+  <span class='p'>}</span>
+<span class='p'>});</span>
+<span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>ObjectController</span><span class='p'>.</span><span class='nx'>reopen</span><span class='p'>({</span>
+  <span class='nx'>logContent</span> <span class='o'>:</span> <span class='kd'>function</span><span class='p'>(){</span>
+    <span class='nx'>console</span><span class='p'>.</span><span class='nx'>log</span><span class='p'>(</span><span class='k'>this</span><span class='p'>.</span><span class='nx'>get</span><span class='p'>(</span><span class='s2'>&quot;content&quot;</span><span class='p'>)).</span><span class='nx'>toString</span><span class='p'>());</span>
+  <span class='p'>}</span>
+<span class='p'>});</span>
+</code></pre></div>
+<p>With this snippet you can easily log the content of a controller:</p>
+<div class='highlight'><pre><code class='javascript'><span class='kd'>var</span> <span class='nx'>ac</span> <span class='o'>=</span> <span class='nx'>Ember</span><span class='p'>.</span><span class='nx'>ArrayController</span><span class='p'>.</span><span class='nx'>create</span><span class='p'>();</span>
+<span class='nx'>ac</span><span class='p'>.</span><span class='nx'>addObject</span><span class='p'>(</span><span class='nx'>Ember</span><span class='p'>.</span><span class='nb'>Object</span><span class='p'>.</span><span class='nx'>create</span><span class='p'>());</span>
+<span class='nx'>ac</span><span class='p'>.</span><span class='nx'>addObject</span><span class='p'>({});</span>
+<span class='nx'>ac</span><span class='p'>.</span><span class='nx'>logContent</span><span class='p'>();</span>
+<span class='c1'>// will print something like</span>
+<span class='c1'>// 0: &lt;Ember.Object:ember893&gt;</span>
+<span class='c1'>// 1: [object Object]</span>
+</code></pre></div>
+<p>As you can see this works with plain Javascript Objects or full blown Ember Objects. If you want more informative logging, all you need to do is overriding the <em>toString</em> method in your Ember Models (i personally build a String consisting of the id and up to 3 important attributes).</p>
+
+<h4 id='conclusion'>Conclusion</h4>
+
+<p>With the snippets provided above you can inspect the controller backing one of your DOM elements with 1 line of code now:</p>
+<div class='highlight'><pre><code class='javascript'><span class='nx'>ec</span><span class='p'>(</span><span class='mi'>479</span><span class='p'>).</span><span class='nx'>logContent</span><span class='p'>();</span>
+</code></pre></div>
+<p>I hope you liked it and debugging got a little bit easier for you. Do you miss any important informations or links i should mention here? I would be happy to add them here.</p>
+    </div>
+
+    <a href="https://twitter.com/mav1lein" class="twitter-follow-button" data-show-count="false" data-lang="en">Follow @twitterapi</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+
+  
+    <ul class="tag_box inline">
+      <li><i class="icon-folder-open"></i></li>
+      
+      
+
+
+  
+     
+    	<li><a href="/categories.html#Javascript-ref">
+    		Javascript <span>2</span>
+    	</a></li>
+    
+  
+
+
+    </ul>
+    
+
+  
+    <ul class="tag_box inline">
+      <li><i class="icon-tags"></i></li>
+      
+      
+
+
+  
+     
+    	<li><a href="/tags.html#emberjs-ref">emberjs <span>2</span></a></li>
+     
+    	<li><a href="/tags.html#javascript-ref">javascript <span>2</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/Javascript/2013/08/01/Ember-JS-After-Render-Event" title="Ember JS - How to execute jQuery logic correctly after your View has been rendered">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next disabled"><a>Next &rarr;</a>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_developer = 1;
+    var disqus_shortname = 'mavilein'; // required: replace example with your forum shortname
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="http://disqus.com" class="dsq-brlink">blog comments powered by <span class="logo-disqus">Disqus</span></a>
+
+
+
+
+  </div>
+</div>
+
+      </div>
+      <hr>
+      <footer>
+        <p>&copy; 2013 Marcus Böhm
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div>
+
+    
+  </body>
+</html>
+
