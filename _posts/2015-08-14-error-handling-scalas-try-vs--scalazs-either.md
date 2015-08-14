@@ -13,44 +13,44 @@ A quick side note: You might ask yourself why i have not included the `Either` t
 
 ### The example scenario
 
-We are going to look a small imaginary Todo list application. Our "domain model" looks like this:
+We are going to look a small imaginary application. Our "domain model" looks like this:
 
 {% highlight scala %}
-case class TaskList(title: String)
+case class Page(title: String, content: String)
 case class User(id: Long)
 {% endhighlight %} 
 
-As you can see this is a not a really useful Todo list, but it will be enough to explore different ways of error handling. What we will try to is authenticating a User and afterwards fetch all his lists. The following are the functions/methods that are provided to us:
+As you can see it is really simple, but it will be enough to explore different ways of error handling. What we will try to is authenticating a User and afterwards fetch his home page. The following are the functions/methods that are provided to us:
 
 {% highlight scala %}
-trait EitherTodoService {
+trait EitherService {
   def authenticate(userId: String, secret: String): \/[MyError, User]
-  def fetchLists(user: User): \/[MyError, Seq[TaskList]]
+  def fetchHomePage(user: User): \/[MyError, Page]
 }
-trait TryTodoService {
+trait TryService {
   def authenticate(userId: String, secret: String): Try[User]
-  def listsForUser(userId: String, secret: String): Try[Seq[TaskList]]
+  def fetchHomePage(user: User): Try[Page]
 }
 {% endhighlight %} 
 
-As you can see someone was so nice to provide us with two different implementations. So we can explore both ways of handling errors. Our task is to write a function that that accepts a userId and a secret and returns a `Seq` of all the `TaskList`s the user has. So these functions are a really great foundation, we just need to build upon them.
+As you can see someone was so nice to provide us with two different implementations. So we can explore both ways of handling errors. Our task is to write a function that that accepts a userId and a secret and returns a `Page` instance, which represents the home page of the user. These functions are a really great foundation, we just need to build upon them.
 
 
 ### The version based on Scalaz's Either, Disjunction or \/
 
-We are supposed to implement this function, while we have access to the variable service of type `EitherTodoService`.
+We are supposed to implement this function, while we have access to the variable service of type `EitherService`.
 
 {% highlight scala %}
-trait EitherTodoService {
+trait EitherService {
   def authenticate(userId: String, secret: String): \/[MyError, User]
-  def fetchLists(user: User): \/[MyError, Seq[TaskList]]
+  def fetchHomePage(user: User): \/[MyError, Page]
 }
 val service: EitherTodoService = ??? // i don't show you the implementation yet :)
 
-def listsForUser(userId: String, secret: String): \/[MyError, Seq[TaskList]] = ???
+def homePageForUser(userId: String, secret: String): \/[MyError, Page] = ???
 {% endhighlight %} 
 
-Let's briefly talk about the return type of `EitherTodoService`. The return type indicates that we are getting either an error of type `MyError` or the successful result in the form of a `User` or `Seq[TaskList]`. The error side is a strong part of the Scalaz Either. It is clearly showing what kind of errors we should expect. We can simply lookup its declaration:
+Let's briefly talk about the return type of `EitherService`. The return type indicates that we are getting either an error of type `MyError` or the successful result in the form of a `User` or a `Page`. The error side is a strong part of the Scalaz Either. It is clearly showing what kind of errors we should expect. We can simply lookup its declaration:
 
 {% highlight scala %}
 sealed trait MyError
@@ -65,37 +65,88 @@ case class ServiceUnavailable(service: String) extends MyError {
 }
 {% endhighlight %} 
 
-It's always a good idea to declare your as a `sealed` type. This means you can only extend this type in the same source file. So at compile time all possible errors are known to you as a client. As we can see we might get back an error if a `User` does not exist for a given id or the provided secret was wrong. And we might even get back a `ServiceUnavailable` Error if `EitherTodoService` is not available at the moment (database or other application down). These are all the error cases we should think about and what to do when they occur.
+It's always a good idea to declare your errors as a `sealed` type. This means you can only extend this type in the same source file. So at compile time all possible errors are known to you as a client. As we can see we might get back an error if a `User` does not exist for a given id or the provided secret was wrong. And we might even get back a `ServiceUnavailable` Error if `EitherService` is not available at the moment (database or other application down). These are all the error cases we should think about and what to do when they occur.
 
 
-But first let's start with an implementation of the happy path ignoring the errors for now. This looks like an easy task with a for comprehension. We simply call `authenticate` with the arguments we are given and afterwards go on to call `fetchLists` with user we received as a result in the first step.
+But first let's start with an implementation of the happy path ignoring the errors for now. This looks like an easy task with a for comprehension. We simply call `authenticate` with the arguments we are given and afterwards go on to call `fetchHomePage` with the user we received as a result in the first step.
 
 {% highlight scala %}
-def listsForUser(userId: String, secret: String): \/[MyError, Seq[TaskList]] = {
+def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
     for {
-      user  <- service.authenticate(userId, secret)
-      lists <- service.fetchLists(user)
-    } yield lists
+      user     <- service.authenticate(userId, secret)
+      homePage <- service.fetchHomePage(user)
+    } yield homePage
 }
 {% endhighlight %} 
 
-Now let's talk about error handling. We can't do much when a user is unknown of his secret is not valid. Assume that we currently have a hard time with our infrastructure. Therefore different services are unfortunately down very often. So we are getting very often `ServiceUnavailable` Error. Our method should handle this error case and just return an empty `Seq[TaskList]`. For some reason the business considers this better than not failing fully.
-Therefore we extend our implementation to analyze the result of the for comprehension before returning something. We pattern match the result to see wether it's a (successful) right result. If so we just return it. But if it is a left result and the contained error is `ServiceUnavailable` we return the empty `Seq[TaskList]`as a successful right result instead. All other are returned unchanged.
+Now let's talk about error handling. We can't do much when a user is unknown or his secret is not valid. Assume that we currently have a hard time with our infrastructure. Therefore different services are unfortunately down very often. So we are getting very often a `ServiceUnavailable` Error. Our method should handle this error case and just return a default `Page` object. This default page provides basic functionality so our users can do at least something.
+Therefore we extend our implementation to analyze the result of the for comprehension before returning something. We pattern match the result to see wether it's a (successful) right result. If so we just return it. But if it is a left result and the contained error is `ServiceUnavailable` we return the `DefaultHomePage` as a successful right result instead. All other are returned unchanged.
 
 {% highlight scala %}
-def listsForUser(userId: String, secret: String): \/[MyError, Seq[TaskList]] = {
-	val listsForUser: \/[MyError, Seq[TaskList]] = for {
-	  user  <- service.authenticate(userId, secret)
-	  lists <- service.fetchLists(user)
-	} yield lists
+// There's a convenient DefaultHomePage singleton object
+object DefaultHomePage extends Page("Welcome!", "This is your amazing Homepage!")
 
-	listsForUser match {
-	  case lists @ \/-(_) =>
-	    lists
-	  case -\/(_ : ServiceUnavailable) =>
-	    \/.right(Seq.empty[TaskList])
-	  case error @ -\/(_) =>
-	    error
+def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
+    val homepage: \/[MyError, Page] = for {
+      user     <- service.authenticate(userId, secret)
+      homePage <- service.fetchHomePage(user)
+    } yield homePage
+
+    homepage match {
+      case \/-(_) =>
+        homepage
+      case -\/(_ : ServiceUnavailable) =>
+        \/.right(DefaultHomePage)
+      case error @ -\/(_) =>
+        error
+    }
+  }
+{% endhighlight %} 
+
+### The version based on Scala's standard Try
+
+Now we are going to implement the same thing again based on the Service with the `Try` type.
+
+{% highlight scala %}
+trait TryService {
+  def authenticate(userId: String, secret: String): Try[User]
+  def fetchHomePage(user: User): Try[Page]
+}
+{% endhighlight %} 
+
+We will start out with the happy path again:
+
+{% highlight scala %}
+def homePageForUser(userId: String, secret: String): Try[Page] = {
+    for {
+      user     <- service.authenticate(userId, secret)
+      homePage <- service.fetchHomePage(user)
+    } yield homePage
+}
+{% endhighlight %} 
+
+This version looks very similar to the one based on `Either`, as both types are monad and the for comprehension do the heavy lifting for us. Now let's add the Error handling again. In this version we can't tell from the type what errors we might get. With `Try` we are relying on `Exception`s for error handling. We dig through the source code and find the following exception hierarchy:
+
+{% highlight scala %}
+sealed class MyException(msg: String) extends Exception(msg, null)
+case class UnknownUserException(userId: Long) extends MyException(s"User with id [$userId] is unknown.")
+case class WrongSecretException(userId: Long) extends MyException(s"User with id [$userId] provided the wrong secret.")
+case class ServiceUnavailableException(service: String) extends MyException(s"The Service [$service] is currently unavailable")
+{% endhighlight %} 
+
+As we can see this hierarchy of exceptions is basically the same as the `Either` based version. Our code enhanced with the error handling for the `ServiceUnavailableException` is as follows:
+
+{% highlight scala %}
+def homePageForUser(userId: String, secret: String): Try[Page] = {
+	val homePageForUser: Try[Page] = for {
+	  user     <- service.authenticate(userId, secret)
+	  homePage <- service.fetchHomePage(user)
+	} yield homePage
+
+	homePageForUser.recover {
+	  case e: ServiceUnavailableException => DefaultHomePage
 	}
 }
 {% endhighlight %} 
+
+Here we do not use pattern matching as `Try` offers the very convenient `recover` method. We provide a `PartialFunction`, which matches on the `Exception` and provides a fallback value. Therefore we don't have to do the cumbersome pattern matching as in the previous version.
