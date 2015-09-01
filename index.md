@@ -15,7 +15,7 @@ I am a Software Developer from Berlin. My main background is *Java*. But lately 
 <ul class="posts">
   {% for post in site.posts %}
     {% unless post.draft %}
-      <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ BASE_PATH }}{{ post.url }}">{{ post.title }}</a></li>
+      <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ BASE_PATH }}{{ post.url }}">{{ post.title }}</a> <!--({{ post.content | number_of_words }} words)--></li>
     {% endunless %}
   {% endfor %}
 </ul>
