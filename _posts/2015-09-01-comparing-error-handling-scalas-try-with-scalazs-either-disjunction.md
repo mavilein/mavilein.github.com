@@ -199,3 +199,5 @@ I hope this was somewhat helpful to you. I often found myself in discussions whe
 But the question is: Can we have a type that is both good at clearly communicating expected errors and also at dealing with unexpected ones. I think there actually is and in one of my upcoming posts i would like to show you how to implement your own `Try` type, which combines the best of both worlds.
 
 **I would love to hear your feedback. If you like, follow me on Twitter.**
+
+PS: You can find the source code [here](https://github.com/mavilein/blog-try-vs-either).
