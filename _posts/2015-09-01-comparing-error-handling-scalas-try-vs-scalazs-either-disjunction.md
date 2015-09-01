@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Error Handling: Scala's Try vs  Scalaz's Either/Disjunction"
-description: ""
+title: "Error Handling: Comparing Scala's Try vs Scalaz's Either/Disjunction"
+description: "Comparing Scalaz's Either/Disjunction with Scala's Try"
 category: Scala
 tags: [scala]
 ---
