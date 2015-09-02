@@ -148,8 +148,8 @@ case class ServiceUnavailableException(service: String) extends MyException(s"Th
 The good thing is the implementing developer was so kind to also use the `sealed` keyword in this case. As we can see this hierarchy of exceptions is basically the same as the `Either` based version. This time we handle the case of unavailable services by handling the `ServiceUnavailableException`:
 
 {% highlight scala %}
-def homePageForUser(userId: String, secret: String): Try[Page] = {
-	val homePageForUser: Try[Page] = for {
+def homePageForUser(userId: String, secret: String): Try[Homepage] = {
+	val homepage: Try[Homepage] = for {
 	  user     <- service.authenticate(userId, secret)
 	  homePage <- service.fetchHomePage(user)
 	} yield homePage
@@ -157,14 +157,31 @@ def homePageForUser(userId: String, secret: String): Try[Page] = {
 	homePageForUser.recover {
 	  case e: ServiceUnavailableException => DefaultHomePage
 	}
+  homepage match {
+    case Success(_) => 
+      homepage
+    case Failure(e: ServiceUnavailableException) =>
+      DefaultHomePage
+    case Failure(e) =>
+      homepage
+  }
 }
 {% endhighlight %} 
 
-Here we do not use pattern matching as `Try` offers the very convenient `recover` method. We provide a `PartialFunction`, which matches on the `Exception` and provides a fallback value. Therefore we don't have to do the more cumbersome pattern matching as in the previous version.
+As with the previous version we pattern match on the result of the for comprehension. We go through the same cases. Only in the case of the `ServiceUnavailableException` we return something different by providing a fallback. 
+With `Try` we could actually write in a shorter way by replacing the pattern matching with the very convenient `recover` method. We provide a `PartialFunction` to this method, which matches on the `Exception` and provides a fallback value. This fallback is only used if the `Try` represents a `Failure` and if the case matches.
+
+{% highlight scala %}
+homePageForUser.recover {
+  case e: ServiceUnavailableException => DefaultHomePage
+}
+{% endhighlight %} 
 
 So far this does look like as if the `Try` is not as good as the `Either`. It is <u>not</u> communicating the possible Errors. It justs offers the handy `recover` method, which makes our code shorter. But we have to be more precise before coming to a conclusion. If we deal with **expected errors** the `Either` is indeed a better choice. But we as programmers often deal with **UNexpected errors**. My code is only rarely perfect and the same is most often true when dealing with code from others. In this case the `Try` will show its strengths. 
 
-The attentive reader might have spotted a small weird thing in the example code. The model `User` does have an attribute id of type `Long`. But our methods `authenticate` and `homePageForUser` actually declare it as a `String`.Let's try what happens when we try both variants in a REPL? Let's try the either based version first:
+### Dealing with unexpected errors
+
+The attentive reader might have spotted a small weird thing in the example code. The model `User` does have an attribute id of type `Long`. But our methods `authenticate` and `homePageForUser` actually declare it as a `String`. Does the method perform a conversion of the `String` into a `Long`? Let's try what happens when we try both variants in a REPL. We start with `Either` one first:
 
 {% highlight scala %}
 // import our Either based example code
@@ -177,7 +194,7 @@ java.lang.NumberFormatException: For input string: "abc"
   at java.lang.Long.parseLong(Long.java:589)
 {% endhighlight %}
 
-As we can see the first one works, because everything is as expected. In the second case we suddenly run into an unexpected error and the call terminates with an exception. I know that this error may seem totally dumb and obvious to you, but it could be any other error you or someone else did not anticipate. Here we suddenly loose all goodness about error handling. Unexpected errors are suddenly not properly containerized anymore. This violates the holy grail of functional programming: **referential transparency**. The presumably more functional version based on `Scalaz` is in not so functional anymore in this case!
+As we can see the first one works, because everything is as expected. In the second case we suddenly run into an unexpected error and the call terminates with an exception. I know that this error may seem totally dumb and obvious to you, but it could be any other error you or someone else did not anticipate. Here we suddenly loose all goodness about error handling. Unexpected errors are suddenly not properly containerized anymore. This violates the holy grail of functional programming: **referential transparency**. The presumably more functional version based on `Scalaz` is not so functional anymore in this case!
 
 Not let's try the same with the version based on `Try`:
 
@@ -190,12 +207,12 @@ scala> homePageForUser("abc", "my-secret!")
 res1: scala.util.Try[try_vs_either.Homepage] = Failure(java.lang.NumberFormatException: For input string: "abc")
 {% endhighlight %}
 
-Here we see that this does not happen to `Try`! The unexpected Error is still containerized. We get back a failure containing the unexpected exception. And the value of this ability cannot be underestimated on the `JVM` platform where exceptions are the most common means to do error handling.
+Here we see that this does not happen to `Try`! The unexpected Error is still containerized. We get back a failure containing the unexpected exception. And the value of this ability cannot be underestimated on the `JVM` platform where exceptions are the most common means to do error handling. Maybe you are so disciplined that you really handle all errors in a functional way. But you will still use libraries (even Java ones) that still rely on exceptions.
 
 ### Conclusion
 
 I hope this was somewhat helpful to you. I often found myself in discussions where some FP advocate claimed that Scalaz's `Either` is much better than Standard Scalas `Either` (do not compare it to this one) and also much better than the `Try` type. Yes, the Scalaz `Either` is better when you speak about **expected errors**. When you talk about **unexpected errors** the `Try` is the winner.
-But the question is: Can we have a type that is both good at clearly communicating expected errors and also at dealing with unexpected ones. I think there actually is and in one of my upcoming posts i would like to show you how to implement your own `Try` type, which combines the best of both worlds.
+But the question is: Can we have a type that is both good at clearly communicating expected errors and also at dealing with unexpected ones? I think there actually is and in one of my upcoming posts i would like to show you how to implement your own `Try` type, which combines the best of both worlds.
 
 **I would love to hear your feedback. If you like, follow me on Twitter.**
 
