@@ -9,11 +9,11 @@ tags: [scala]
 
 Today we're going to compare two ways of handling errors in Scala. First we will look at the type `\/` from the `Scalaz` library (yes, this is its "name"). This type is usually called `Either` or `Disjunction`. Next we will look at the `Try` type from the Scala standard library. We go through the same example with both types to show their respective strengths and weaknesses.
 
-A quick side note: You might ask yourself why i have not included the `Either` type from the Scala standard library as well. It is a pity that both Scalaz and Scala have a type with this name as this causes a lot of confusion in my opinion. Let me assure you that those should not be really compared as they are useful for pretty much different things.
+A quick side note: You might ask yourself why i have not included the `Either` type from the Scala standard library as well. It is a pity that both Scalaz and Scala have a type with this name as this causes a lot of confusion. Let me assure you that those should not be really compared as they have different use cases.
 
 ### The example scenario
 
-We are going to look a small imaginary CMS application, that deals with users and their homepages. Our "domain model" looks like this:
+We are going to look at a small imaginary CMS application, that deals with users and their homepages. What we will try to do is authenticating a User and afterwards fetch his home page. Our domain model looks like this:
 
 {% highlight scala %}
 case class Homepage(title: String, content: String)
@@ -22,7 +22,9 @@ case class User(id: Long)
 object DefaultHomePage extends Homepage("Welcome!", "This is your amazing Homepage!")
 {% endhighlight %} 
 
-As you can see it is really simple, but it will be enough to explore different ways of error handling. The `DefaultHomePage` will be used when things go wrong. What we will try to is authenticating a User and afterwards fetch his home page. The following are the functions/methods that are provided to us:
+As you can see it is really simple, but it will be enough to explore different ways of error handling. Sometimes things go wrong in this application, because other required applications are not available. So we'll need a `DefaultHomePage` to display when we have trouble loading the page the user has requested.
+
+The following are the functions/methods that are provided to us:
 
 {% highlight scala %}
 trait EitherService {
@@ -35,7 +37,7 @@ trait TryService {
 }
 {% endhighlight %} 
 
-As you can see someone was so nice to provide us with two different implementations. So we can explore both ways of handling errors. Our task is to write a function `homePageForUser` for each version of the Service that that accepts a userId and a secret and returns a `Homepage` instance, which represents the home page of the user. The signatures of the new methods look like this:
+As you can see someone was so kind to provide us with two different implementations. So we can explore both ways of handling errors. Our task is to write a function `homePageForUser` for each version of the Service that accepts a userId and a secret and returns a `Homepage` instance, which represents the home page of the user. The signatures of the new methods look like this:
 
 {% highlight scala %}
 // the function that uses the EitherService
@@ -54,10 +56,10 @@ We are supposed to implement this function, while we have access to the variable
 {% highlight scala %}
 val service: EitherService = ??? // let's not worry about its exact implementation
 
-def homePageForUser(userId: String, secret: String): Try[Homepage] = ???
+def homePageForUser(userId: String, secret: String): \/[MyError, Homepage] = ???
 {% endhighlight %} 
 
-Let's briefly talk about the return type of `EitherService`. The return type indicates that we are getting either an error of type `MyError` or the successful result in the form of a `User` or a `Homepage`. The error side is a strong part of the Scalaz Either. It is clearly showing what kind of errors we should expect. We can simply lookup its declaration:
+Let's briefly talk about the return type of `EitherService`. The return type indicates that we are getting either an error of type `MyError` or the successful result in the form of a `User` or a `Homepage`. Accordingly will also return either a `MyError` instance or the `Homepage` if successful. The error side is a strong part of the Scalaz Either. It is clearly showing what kind of errors we should expect. We can simply lookup its declaration:
 
 {% highlight scala %}
 sealed trait MyError
@@ -72,7 +74,7 @@ case class ServiceUnavailable(service: String) extends MyError {
 }
 {% endhighlight %} 
 
-It's always a good idea to declare your errors as a `sealed` type. This means you can only extend this type in the same source file. So at compile time all possible errors are known to you as a client. As we can see we might get back an error if a `User` does not exist for a given id or the provided secret was wrong. And we might even get back a `ServiceUnavailable` Error if `EitherService` is not available at the moment (database or other required application is down). These are all the error cases we should think about and what to do when they occur.
+It's always a good idea to declare your errors as a `sealed` type. This means you can extend this type only in the same source file. So at compile time all possible errors are known to you as a client. As we can see we might get back an error if a `User` does not exist for a given id or the provided secret was wrong. And we might even get back a `ServiceUnavailable` Error if `EitherService` is not available at the moment (database or other required application is down). These are all the error cases we should think about and what to do when they occur.
 
 
 But first let's start with an implementation of the happy path ignoring the errors for now. This looks like an easy task with a for comprehension. We simply call `authenticate` with the arguments we are given and afterwards go on to call `fetchHomePage` with the user we received as a result in the first step.
@@ -88,14 +90,11 @@ def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
 
 Now let's talk about error handling and the different errors that i have presented above. We can't do much when a user is unknown or his secret is not valid. Assume that we currently have a hard time with our infrastructure. Therefore different services are unfortunately down very often. So we are getting very often a `ServiceUnavailable` Error. Our method should handle this error case and just return the `DefaultHomePage` object. This default page provides basic functionality so our users can do at least something.
 
-If you have not dealt with Scalaz before the code below may look very strange to you. The `\/` is the "name" of the type. This type has to possible subtypes: `-\/` (called left) and `\/-` (called right). Just look at the position of the `-` and you will know whether it is right or left. By convention the left subtype is reserved for errors.<br/>
+If you have not dealt with Scalaz before the following code may look very strange to you. The `\/` is the "name" of the type. This type has two possible subtypes: `-\/` (called left) and `\/-` (called right). Just look at the position of the `-` and you will know whether it is right or left. By convention the left subtype is reserved for errors.<br/>
 
-We extend our implementation to analyze the result of the for comprehension before returning something. We pattern match the result to see wether it's a (successful) right result. If so we just return it. But if it is a left result and the contained error is `ServiceUnavailable` we return the `DefaultHomePage` as a successful right result instead. All other errors are returned unchanged.
+We extend our implementation to analyze the result of the for comprehension before returning something. We pattern match the result to see wether it's a successful right result. If so we just return it. But if it is a left result and the contained error is `ServiceUnavailable` we provide the `DefaultHomePage` as a fallback instead. All other errors are returned unchanged.
 
 {% highlight scala %}
-// There's a convenient DefaultHomePage singleton object
-object DefaultHomePage extends Page("Welcome!", "This is your amazing Homepage!")
-
 def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
     val homepage: \/[MyError, Page] = for {
       user     <- service.authenticate(userId, secret)
@@ -117,7 +116,7 @@ As you can see the type `MyError` showed us clearly what could go wrong and we j
 
 ### The version based on Scala's standard Try
 
-Now we are going to implement the same thing again based on the Service with the `Try` type. Let's quickly recall the `TryService` we are going to use this time:
+Now we are going to implement the same thing again based on the `TryService`. Let's quickly recall its signature:
 
 {% highlight scala %}
 trait TryService {
@@ -137,7 +136,7 @@ def homePageForUser(userId: String, secret: String): Try[Page] = {
 }
 {% endhighlight %} 
 
-This version looks very similar to the one based on `Either`. Only the return types differ. This is because both types are monads and we use a for comprehension in both cases. Now let's add the Error handling again. In this version we can't tell from the type what errors we might get. With `Try` we are relying on `Exception`s for error handling. We dig through the source code and find the following exception hierarchy:
+This version looks very similar to the one based on `Either`. Only the return types differ. This is because both types are monads and we use a for comprehension in both cases. Now let's add the Error handling again. In this version we can't tell from the type what errors we might encounter. With `Try` we are relying on `Exception`s for error handling. We dig through the source code and find the following exception hierarchy:
 
 {% highlight scala %}
 sealed class MyException(msg: String) extends Exception(msg, null)
@@ -146,7 +145,7 @@ case class WrongSecretException(userId: Long) extends MyException(s"User with id
 case class ServiceUnavailableException(service: String) extends MyException(s"The Service [$service] is currently unavailable")
 {% endhighlight %} 
 
-The good thing is the implementing developer was so kind to also use the `sealed` keyword in this case. As we can see this hierarchy of exceptions is basically the same as the `Either` based version. Our code enhanced with the error handling for the `ServiceUnavailableException` is as follows:
+The good thing is the implementing developer was so kind to also use the `sealed` keyword in this case. As we can see this hierarchy of exceptions is basically the same as the `Either` based version. This time we handle the case of unavailable services by handling the `ServiceUnavailableException`:
 
 {% highlight scala %}
 def homePageForUser(userId: String, secret: String): Try[Page] = {
@@ -195,7 +194,7 @@ Here we see that this does not happen to `Try`! The unexpected Error is still co
 
 ### Conclusion
 
-I hope this was somewhat helpful to you. I often found myself in discussions where some FP advocate claimed that Scalaz's `Either` is much better than Standard Scalas `Either` (do not compare it to this one) and also much better than the `Try` type. Yes, the Scalaz `Either` is better when you speak about **expected errors**. When you talk about unexpected errors the `Try` is the winner.
+I hope this was somewhat helpful to you. I often found myself in discussions where some FP advocate claimed that Scalaz's `Either` is much better than Standard Scalas `Either` (do not compare it to this one) and also much better than the `Try` type. Yes, the Scalaz `Either` is better when you speak about **expected errors**. When you talk about **unexpected errors** the `Try` is the winner.
 But the question is: Can we have a type that is both good at clearly communicating expected errors and also at dealing with unexpected ones. I think there actually is and in one of my upcoming posts i would like to show you how to implement your own `Try` type, which combines the best of both worlds.
 
 **I would love to hear your feedback. If you like, follow me on Twitter.**
