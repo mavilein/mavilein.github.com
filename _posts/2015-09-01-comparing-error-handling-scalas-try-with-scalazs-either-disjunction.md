@@ -7,7 +7,7 @@ tags: [scala]
 ---
 {% include JB/setup %}
 
-Today we're going to compare two ways of handling errors in Scala. First we will look at the type `\/` from the `Scalaz` library (yes, this is its "name"). This type is usually called `Either` or `Disjunction`. Next we will look at the `Try` type from the Scala standard library. We go through the same example with both types to show their respective strengths and weaknesses.
+Today we're going to compare two ways of handling errors in Scala. First we will look at the type `\/` from the `Scalaz` library (yes, this is its "name"). This type is usually called `Either` or `Disjunction`. Next we will look at the `Try` type from the Scala standard library. We go through the same example of implementing one function with both types. This will show their respective strengths and weaknesses.
 
 A quick side note: You might ask yourself why i have not included the `Either` type from the Scala standard library as well. It is a pity that both Scalaz and Scala have a type with this name as this causes a lot of confusion. Let me assure you that those should not be really compared as they have different use cases.
 
@@ -29,11 +29,11 @@ The following are the functions/methods that are provided to us:
 {% highlight scala %}
 trait EitherService {
   def authenticate(userId: String, secret: String): \/[MyError, User]
-  def fetchHomePage(user: User): \/[MyError, Page]
+  def fetchHomePage(user: User): \/[MyError, Homepage]
 }
 trait TryService {
   def authenticate(userId: String, secret: String): Try[User]
-  def fetchHomePage(user: User): Try[Page]
+  def fetchHomePage(user: User): Try[Homepage]
 }
 {% endhighlight %} 
 
@@ -59,18 +59,18 @@ val service: EitherService = ??? // let's not worry about its exact implementati
 def homePageForUser(userId: String, secret: String): \/[MyError, Homepage] = ???
 {% endhighlight %} 
 
-Let's briefly talk about the return type of `EitherService`. The return type indicates that we are getting either an error of type `MyError` or the successful result in the form of a `User` or a `Homepage`. Accordingly will also return either a `MyError` instance or the `Homepage` if successful. The error side is a strong part of the Scalaz Either. It is clearly showing what kind of errors we should expect. We can simply lookup its declaration:
+Let's briefly talk about the return type of `EitherService`. The return type indicates that we are getting either an error of type `MyError` or the successful result in the form of a `User` or a `Homepage`. Accordingly our new function will also return either a `MyError` instance or the `Homepage` if it succeeded. The error side is a strong part of the Scalaz Either. It is clearly showing what kind of errors we should expect. We can simply lookup its declaration:
 
 {% highlight scala %}
 sealed trait MyError
 case class UnknownUser(userId: Long) extends MyError {
-	override def toString = s"User with id [$userId] is unknown."
+  override def toString = s"User with id [$userId] is unknown."
 }
 case class WrongSecret(userId: Long) extends MyError {
-	override def toString = s"User with id [$userId] provided the wrong secret."
+  override def toString = s"User with id [$userId] provided the wrong secret."
 }
 case class ServiceUnavailable(service: String) extends MyError {
-	override def toString = s"The Service [$service] is currently unavailable"
+  override def toString = s"The Service [$service] is currently unavailable"
 }
 {% endhighlight %} 
 
@@ -90,9 +90,10 @@ def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
 
 Now let's talk about error handling and the different errors that i have presented above. We can't do much when a user is unknown or his secret is not valid. Assume that we currently have a hard time with our infrastructure. Therefore different services are unfortunately down very often. So we are getting very often a `ServiceUnavailable` Error. Our method should handle this error case and just return the `DefaultHomePage` object. This default page provides basic functionality so our users can do at least something.
 
-If you have not dealt with Scalaz before the following code may look very strange to you. The `\/` is the "name" of the type. This type has two possible subtypes: `-\/` (called left) and `\/-` (called right). Just look at the position of the `-` and you will know whether it is right or left. By convention the left subtype is reserved for errors.<br/>
+If you have not dealt with Scalaz before the following code may look very strange to you. The `\/` is the "name" of the type. This type has two possible subtypes: `-\/` (called left) and `\/-` (called right). Just look at the position of the `-` and you will know whether it is right or left. By convention the left subtype is reserved for errors. With `\/.left` and `\/.right` we can create instances of this type.<br/>
 
-We extend our implementation to analyze the result of the for comprehension before returning something. We pattern match the result to see wether it's a successful right result. If so we just return it. But if it is a left result and the contained error is `ServiceUnavailable` we provide the `DefaultHomePage` as a fallback instead. All other errors are returned unchanged.
+We extend our implementation to analyze the result of the for comprehension before returning something. We pattern match the result to check wether it's a left instance containing an `ServiceUnavailable` error. If so we provide the `DefaultHomePage` as a fallback. All other cases are returned unchanged (successful results and other errors).
+
 
 {% highlight scala %}
 def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
@@ -102,12 +103,10 @@ def homePageForUser(userId: String, secret: String): \/[MyError, Page] = {
     } yield homePage
 
     homepage match {
-      case \/-(_) =>
-        homepage
       case -\/(error: ServiceUnavailable) =>
         \/.right(DefaultHomePage)
-      case left @ -\/(error) =>
-        left
+      case _ =>
+        homepage
     }
   }
 {% endhighlight %} 
@@ -121,14 +120,14 @@ Now we are going to implement the same thing again based on the `TryService`. Le
 {% highlight scala %}
 trait TryService {
   def authenticate(userId: String, secret: String): Try[User]
-  def fetchHomePage(user: User): Try[Page]
+  def fetchHomePage(user: User): Try[Homepage]
 }
 {% endhighlight %} 
 
 We will start out with the happy path again:
 
 {% highlight scala %}
-def homePageForUser(userId: String, secret: String): Try[Page] = {
+def homePageForUser(userId: String, secret: String): Try[Homepage] = {
     for {
       user     <- service.authenticate(userId, secret)
       homePage <- service.fetchHomePage(user)
@@ -149,27 +148,22 @@ The good thing is the implementing developer was so kind to also use the `sealed
 
 {% highlight scala %}
 def homePageForUser(userId: String, secret: String): Try[Homepage] = {
-	val homepage: Try[Homepage] = for {
-	  user     <- service.authenticate(userId, secret)
-	  homePage <- service.fetchHomePage(user)
-	} yield homePage
-
-	homePageForUser.recover {
-	  case e: ServiceUnavailableException => DefaultHomePage
-	}
+  val homepage: Try[Homepage] = for {
+    user     <- service.authenticate(userId, secret)
+    homePage <- service.fetchHomePage(user)
+  } yield homePage
+  
   homepage match {
-    case Success(_) => 
-      homepage
     case Failure(e: ServiceUnavailableException) =>
       DefaultHomePage
-    case Failure(e) =>
+    case _ => 
       homepage
   }
 }
 {% endhighlight %} 
 
-As with the previous version we pattern match on the result of the for comprehension. We go through the same cases. Only in the case of the `ServiceUnavailableException` we return something different by providing a fallback. 
-With `Try` we could actually write in a shorter way by replacing the pattern matching with the very convenient `recover` method. We provide a `PartialFunction` to this method, which matches on the `Exception` and provides a fallback value. This fallback is only used if the `Try` represents a `Failure` and if the case matches.
+As with the previous version we pattern match on the result of the for comprehension. We go through the same cases. Just the name of the subtype for errors changes to `Failure`. In the case of the `ServiceUnavailableException` we return the fallback. <br/>
+With `Try` we could actually write it in a shorter way by replacing the pattern matching with the very convenient `recover` method. We provide a `PartialFunction` to this method, which matches on the `Exception` and provides a fallback value. This fallback is only used if the `Try` represents a `Failure` and if the case matches.
 
 {% highlight scala %}
 homePageForUser.recover {
@@ -177,11 +171,11 @@ homePageForUser.recover {
 }
 {% endhighlight %} 
 
-So far this does look like as if the `Try` is not as good as the `Either`. It is <u>not</u> communicating the possible Errors. It justs offers the handy `recover` method, which makes our code shorter. But we have to be more precise before coming to a conclusion. If we deal with **expected errors** the `Either` is indeed a better choice. But we as programmers often deal with **UNexpected errors**. My code is only rarely perfect and the same is most often true when dealing with code from others. In this case the `Try` will show its strengths. 
+So far this does look like as if the `Try` is not as good as the `Either`. It is <u>not</u> communicating the Errors we should think about. It justs offers the handy `recover` method, which makes our code shorter. But we have to be more precise before coming to a conclusion. We need to differentiate between **expected errors** and **unexpected errors**. The `Either` type is good at communicating expected errors. But we as programmers often deal with unexpected errors. Code is rarely perfect and therefore we should be prepared to deal with them. Let's examine how those both types perform when dealing with unexpected errors. In this case the `Try` will show its strengths.
 
 ### Dealing with unexpected errors
 
-The attentive reader might have spotted a small weird thing in the example code. The model `User` does have an attribute id of type `Long`. But our methods `authenticate` and `homePageForUser` actually declare it as a `String`. Does the method perform a conversion of the `String` into a `Long`? Let's try what happens when we try both variants in a REPL. We start with `Either` one first:
+The attentive reader might have spotted a small weird thing in the example code. The model `User` does have an attribute id of type `Long`. But our methods `authenticate` and `homePageForUser` actually declare the parameter userId as a `String`. Does the method perform a conversion of the `String` into a `Long`? Let's try what happens when we try both variants in a REPL. We start with the `Either` version first:
 
 {% highlight scala %}
 // import our Either based example code
@@ -207,12 +201,13 @@ scala> homePageForUser("abc", "my-secret!")
 res1: scala.util.Try[try_vs_either.Homepage] = Failure(java.lang.NumberFormatException: For input string: "abc")
 {% endhighlight %}
 
-Here we see that this does not happen to `Try`! The unexpected Error is still containerized. We get back a failure containing the unexpected exception. And the value of this ability cannot be underestimated on the `JVM` platform where exceptions are the most common means to do error handling. Maybe you are so disciplined that you really handle all errors in a functional way. But you will still use libraries (even Java ones) that still rely on exceptions.
+Here we see that this does not happen to `Try`! The unexpected Error is still containerized. We get back a failure containing the unexpected exception. The value of this property cannot be underestimated on the JVM platform where exceptions are so widespread. Even if you are able to anticipate all possible errors and handle them in a proper way, you will still rely on other APIs that still rely on exceptions. In asynchronous applications this becomes even more important because unexpected errors can easily go undetected without proper containerization.
 
 ### Conclusion
 
-I hope this was somewhat helpful to you. I often found myself in discussions where some FP advocate claimed that Scalaz's `Either` is much better than Standard Scalas `Either` (do not compare it to this one) and also much better than the `Try` type. Yes, the Scalaz `Either` is better when you speak about **expected errors**. When you talk about **unexpected errors** the `Try` is the winner.
-But the question is: Can we have a type that is both good at clearly communicating expected errors and also at dealing with unexpected ones? I think there actually is and in one of my upcoming posts i would like to show you how to implement your own `Try` type, which combines the best of both worlds.
+I often found myself in discussions where some FP advocate claimed that Scalaz's `Either` is better than Standard Scalas `Either` (do not compare it to this one) and also better than the `Try` type. Yes, the Scalaz `Either` is better when you speak about **expected errors**. When you talk about **unexpected errors** the `Try` is the winner. I hope this will be helpful to you the next time you think about error handling.<br/>
+
+But the question is: Can we have a type that is both good at clearly communicating expected errors and also at dealing with unexpected ones? I think there actually is and in one of my upcoming posts i would like to show you how to implement your own enhanced `Try` type, which combines the best of both worlds.
 
 **I would love to hear your feedback. If you like, follow me on Twitter.**
 
